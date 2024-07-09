@@ -20,6 +20,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     private ProjectileManager projectileManager;
     private List<Enemy> enemies;
     private Random random;
+    private Timer enemyRespawnTimer;
 
     public WarAreaPanel() {
         setPreferredSize(new Dimension(800, 600));
@@ -39,13 +40,22 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             public void actionPerformed(ActionEvent e) {
                 projectileManager.update();
                 updateEnemies();
+                checkCollisions();
                 repaint();
             }
         });
         timer.start();
 
+        enemyRespawnTimer = new Timer(3000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                spawnEnemies(5);
+            }
+        });
+        enemyRespawnTimer.start();
+
         // Spawn enemies after the panel has been properly sized
-        SwingUtilities.invokeLater(() -> spawnEnemies(10));
+        SwingUtilities.invokeLater(() -> spawnEnemies(5));
     }
 
     private void loadImages() {
@@ -69,8 +79,26 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         // Ensure that the panel has been properly sized before spawning enemies
         if (panelWidth > 0 && panelHeight > 0) {
             for (int i = 0; i < count; i++) {
-                int startX = random.nextInt(panelWidth - enemyImage.getWidth(null));
-                int startY = random.nextInt(panelHeight / 2);
+                int startX = 0, startY = 0;
+                int side = random.nextInt(4);
+                switch (side) {
+                    case 0: // Left
+                        startX = 0;
+                        startY = random.nextInt(panelHeight);
+                        break;
+                    case 1: // Right
+                        startX = panelWidth - enemyImage.getWidth(null);
+                        startY = random.nextInt(panelHeight);
+                        break;
+                    case 2: // Top
+                        startX = random.nextInt(panelWidth);
+                        startY = 0;
+                        break;
+                    case 3: // Bottom
+                        startX = random.nextInt(panelWidth);
+                        startY = panelHeight - enemyImage.getHeight(null);
+                        break;
+                }
                 enemies.add(new Enemy(startX, startY, enemyImage));
             }
         }
@@ -79,6 +107,21 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     private void updateEnemies() {
         for (Enemy enemy : enemies) {
             enemy.moveTowards(characterX, characterY);
+        }
+    }
+
+    private void checkCollisions() {
+        List<Projectile> projectiles = projectileManager.getProjectiles();
+        for (int i = projectiles.size() - 1; i >= 0; i--) {
+            Projectile projectile = projectiles.get(i);
+            for (int j = enemies.size() - 1; j >= 0; j--) {
+                Enemy enemy = enemies.get(j);
+                if (projectile.collidesWith(enemy)) {
+                    projectiles.remove(i);
+                    enemies.remove(j);
+                    break;
+                }
+            }
         }
     }
 
@@ -162,26 +205,31 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     @Override
     public void keyPressed(KeyEvent e) {
-        // Direction variable;
+        // Direction variables
+        int dx = 0;
+        int dy = 0;
 
         int key = e.getKeyCode();
 
         if (key == KeyEvent.VK_LEFT) {
-            projectileManager.fireProjectile(characterX, characterY, -1, 0); // Left
+            dx = -1; // Left
         }
 
         if (key == KeyEvent.VK_RIGHT) {
-            projectileManager.fireProjectile(characterX, characterY, 1, 0); // Right
+            dx = 1; // Right
         }
 
         if (key == KeyEvent.VK_UP) {
-            projectileManager.fireProjectile(characterX, characterY, 0, -1); // Up
+            dy = -1; // Up
         }
 
         if (key == KeyEvent.VK_DOWN) {
-            projectileManager.fireProjectile(characterX, characterY, 0, 1); // Down
+            dy = 1; // Down
         }
 
+        if (dx != 0 || dy != 0) {
+            projectileManager.fireProjectile(characterX, characterY, dx, dy);
+        }
     }
 
     @Override
@@ -195,7 +243,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         }
 
         public void fireProjectile(int startX, int startY, int dx, int dy) {
-            System.out.println("Firing projectile from (" + startX + ", " + startY + ") with direction (" + dx + ", " + dy + ")");
             projectiles.add(new Projectile(startX + characterImage.getWidth(null) / 2,
                     startY + characterImage.getHeight(null) / 2,
                     dx, dy));
@@ -253,7 +300,13 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
         public boolean isVisible() {
             // Check if projectile is still within bounds
-            return x >= 0 && x <= getWidth() && y >= 0 && y <= getHeight();
+            return x >= 0 && x <= WarAreaPanel.this.getWidth() && y >= 0 && y <= WarAreaPanel.this.getHeight();
+        }
+
+        public boolean collidesWith(Enemy enemy) {
+            Rectangle projectileRect = new Rectangle(x, y, width, height);
+            Rectangle enemyRect = new Rectangle(enemy.getX(), enemy.getY(), enemy.getImage().getWidth(null), enemy.getImage().getHeight(null));
+            return projectileRect.intersects(enemyRect);
         }
     }
 
@@ -273,8 +326,8 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             int dy = targetY - y;
             double distance = Math.sqrt(dx * dx + dy * dy);
             if (distance > 0) {
-                x += (int) (speed * dx / distance);
-                y += (int) (speed * dy / distance);
+                x += (dx / distance) * speed;
+                y += (dy / distance) * speed;
             }
         }
 
