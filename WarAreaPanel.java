@@ -14,13 +14,14 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     private Image enemyImage; // Image for the enemies
     private int characterX = 240; // Initial X position of the character
     private int characterY = 450; // Initial Y position of the character
-    private int mouseX, mouseY; // Mouse coordinates
     private boolean mousePressed = false;
     private Timer timer;
     private ProjectileManager projectileManager;
+    private ProjectileManager enemyProjectileManager;
     private List<Enemy> enemies;
     private Random random;
     private Timer enemyRespawnTimer;
+    private boolean firingLeft, firingRight, firingUp, firingDown;
 
     public WarAreaPanel() {
         setPreferredSize(new Dimension(800, 600));
@@ -30,6 +31,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         addKeyListener(this);
 
         projectileManager = new ProjectileManager();
+        enemyProjectileManager = new ProjectileManager();
         enemies = new ArrayList<>();
         random = new Random();
 
@@ -39,6 +41,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             @Override
             public void actionPerformed(ActionEvent e) {
                 projectileManager.update();
+                enemyProjectileManager.update();
                 updateEnemies();
                 checkCollisions();
                 repaint();
@@ -49,6 +52,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         enemyRespawnTimer = new Timer(3000, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                // Ensure there are always 10 enemies
                 spawnEnemies(5);
             }
         });
@@ -72,34 +76,53 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         enemyImage = enemyIcon.getImage();
     }
 
-    private void spawnEnemies(int count) {
-        int panelWidth = getWidth();
-        int panelHeight = getHeight();
+    private void spawnEnemies(int maxCount) {
+        int currentEnemyCount = enemies.size();
 
-        // Ensure that the panel has been properly sized before spawning enemies
-        if (panelWidth > 0 && panelHeight > 0) {
-            for (int i = 0; i < count; i++) {
-                int startX = 0, startY = 0;
-                int side = random.nextInt(4);
-                switch (side) {
-                    case 0: // Left
-                        startX = 0;
-                        startY = random.nextInt(panelHeight);
-                        break;
-                    case 1: // Right
-                        startX = panelWidth - enemyImage.getWidth(null);
-                        startY = random.nextInt(panelHeight);
-                        break;
-                    case 2: // Top
-                        startX = random.nextInt(panelWidth);
-                        startY = 0;
-                        break;
-                    case 3: // Bottom
-                        startX = random.nextInt(panelWidth);
-                        startY = panelHeight - enemyImage.getHeight(null);
-                        break;
+        // Ensure we don't spawn more than the max count (e.g., 10 enemies)
+        int enemiesToSpawn = maxCount - currentEnemyCount;
+
+        if (enemiesToSpawn > 0) {
+            int panelWidth = getWidth();
+            int panelHeight = getHeight();
+
+            // Ensure that the panel has been properly sized before spawning enemies
+            if (panelWidth > 0 && panelHeight > 0) {
+                for (int i = 0; i < enemiesToSpawn; i++) {
+                    int startX = 0, startY = 0;
+                    int side = random.nextInt(4);
+                    switch (side) {
+                        case 0: // Left
+                            startX = 0;
+                            startY = random.nextInt(panelHeight);
+                            break;
+                        case 1: // Right
+                            startX = panelWidth - enemyImage.getWidth(null);
+                            startY = random.nextInt(panelHeight);
+                            break;
+                        case 2: // Top
+                            startX = random.nextInt(panelWidth);
+                            startY = 0;
+                            break;
+                        case 3: // Bottom
+                            startX = random.nextInt(panelWidth);
+                            startY = panelHeight - enemyImage.getHeight(null);
+                            break;
+                    }
+                    Enemy enemy = new Enemy(startX, startY, enemyImage);
+                    enemies.add(enemy);
+
+                    // Schedule enemy projectile firing
+                    new Timer(random.nextInt(3000) + 2000, new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            enemyProjectileManager.fireProjectileEnemy(enemy.getX() + enemy.getImage().getWidth(null) / 2,
+                                    enemy.getY() + enemy.getImage().getHeight(null) / 2,
+                                    characterX + characterImage.getWidth(null) / 2,
+                                    characterY + characterImage.getHeight(null) / 2);
+                        }
+                    }).start();
                 }
-                enemies.add(new Enemy(startX, startY, enemyImage));
             }
         }
     }
@@ -121,6 +144,17 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
                     enemies.remove(j);
                     break;
                 }
+            }
+        }
+
+        // Check for collisions between enemy projectiles and the character
+        List<Projectile> enemyProjectiles = enemyProjectileManager.getProjectiles();
+        for (int i = enemyProjectiles.size() - 1; i >= 0; i--) {
+            Projectile projectile = enemyProjectiles.get(i);
+            if (projectile.collidesWith(characterX, characterY, characterImage.getWidth(null), characterImage.getHeight(null))) {
+                enemyProjectiles.remove(i);
+                // Handle character being hit (e.g., reduce health, end game, etc.)
+                System.out.println("Character hit!");
             }
         }
     }
@@ -150,6 +184,12 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         for (Projectile projectile : projectileManager.getProjectiles()) {
             g2d.fillOval(projectile.getX(), projectile.getY(), projectile.getWidth(), projectile.getHeight());
         }
+
+        // Draw enemy projectiles
+        g2d.setColor(Color.RED);
+        for (Projectile projectile : enemyProjectileManager.getProjectiles()) {
+            g2d.fillOval(projectile.getX(), projectile.getY(), projectile.getWidth(), projectile.getHeight());
+        }
     }
 
     @Override
@@ -157,8 +197,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     @Override
     public void mousePressed(MouseEvent e) {
-        mouseX = e.getX();
-        mouseY = e.getY();
         mousePressed = true;
     }
 
@@ -175,26 +213,16 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        if (mousePressed) {
-            int dx = e.getX() - mouseX;
-            int dy = e.getY() - mouseY;
-
-            // Update character position
-            int newX = characterX + dx;
-            int newY = characterY + dy;
-
-            // Check boundaries
-            if (newX >= 0 && newX + characterImage.getWidth(this) <= getWidth()) {
-                characterX = newX;
-            }
-            if (newY >= 0 && newY + characterImage.getHeight(this) <= getHeight()) {
-                characterY = newY;
-            }
-
-            mouseX = e.getX();
-            mouseY = e.getY();
-            repaint();
-        }
+        // Update character position based on mouse drag
+        characterX = e.getX() - characterImage.getWidth(null) / 2;
+        characterY = e.getY() - characterImage.getHeight(null) / 2;
+        // Ensure character stays within panel boundaries
+        if (characterX < 0) characterX = 0;
+        if (characterY < 0) characterY = 0;
+        if (characterX > getWidth() - characterImage.getWidth(null))
+            characterX = getWidth() - characterImage.getWidth(null);
+        if (characterY > getHeight() - characterImage.getHeight(null))
+            characterY = getHeight() - characterImage.getHeight(null);
     }
 
     @Override
@@ -205,35 +233,57 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     @Override
     public void keyPressed(KeyEvent e) {
-        // Direction variables
-        int dx = 0;
-        int dy = 0;
-
         int key = e.getKeyCode();
 
+        // Determine direction based on key pressed
         if (key == KeyEvent.VK_LEFT) {
-            dx = -1; // Left
+            firingLeft = true;
+        } else if (key == KeyEvent.VK_RIGHT) {
+            firingRight = true;
+        } else if (key == KeyEvent.VK_UP) {
+            firingUp = true;
+        } else if (key == KeyEvent.VK_DOWN) {
+            firingDown = true;
         }
 
-        if (key == KeyEvent.VK_RIGHT) {
-            dx = 1; // Right
-        }
+        // Fire projectile based on direction
+        if (firingLeft || firingRight || firingUp || firingDown) {
+            int startX = characterX + characterImage.getWidth(null) / 2;
+            int startY = characterY + characterImage.getHeight(null) / 2;
+            int dx = 0, dy = 0;
 
-        if (key == KeyEvent.VK_UP) {
-            dy = -1; // Up
-        }
+            if (firingLeft) {
+                dx = -5;
+            }
+            if (firingRight) {
+                dx = 5;
+            }
+            if (firingUp) {
+                dy = -5;
+            }
+            if (firingDown) {
+                dy = 5;
+            }
 
-        if (key == KeyEvent.VK_DOWN) {
-            dy = 1; // Down
-        }
-
-        if (dx != 0 || dy != 0) {
-            projectileManager.fireProjectile(characterX, characterY, dx, dy);
+            projectileManager.fireProjectile(startX, startY, dx, dy);
         }
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {
+        int key = e.getKeyCode();
+
+        // Stop firing in a direction when the key is released
+        if (key == KeyEvent.VK_LEFT) {
+            firingLeft = false;
+        } else if (key == KeyEvent.VK_RIGHT) {
+            firingRight = false;
+        } else if (key == KeyEvent.VK_UP) {
+            firingUp = false;
+        } else if (key == KeyEvent.VK_DOWN) {
+            firingDown = false;
+        }
+    }
 
     private class ProjectileManager {
         private List<Projectile> projectiles;
@@ -243,16 +293,21 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         }
 
         public void fireProjectile(int startX, int startY, int dx, int dy) {
-            projectiles.add(new Projectile(startX + characterImage.getWidth(null) / 2,
-                    startY + characterImage.getHeight(null) / 2,
-                    dx, dy));
+            projectiles.add(new Projectile(startX, startY, dx, dy, 10, 10));
+        }
+
+        public void fireProjectileEnemy(int startX, int startY, int targetX, int targetY) {
+            int dx = targetX - startX;
+            int dy = targetY - startY;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            projectiles.add(new Projectile(startX, startY, (int) (dx / distance * 5), (int) (dy / distance * 5), 10, 10));
         }
 
         public void update() {
             for (int i = projectiles.size() - 1; i >= 0; i--) {
                 Projectile projectile = projectiles.get(i);
-                projectile.move();
-                if (!projectile.isVisible()) {
+                projectile.update();
+                if (projectile.isOutOfBounds(getWidth(), getHeight())) {
                     projectiles.remove(i);
                 }
             }
@@ -265,21 +320,39 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     private class Projectile {
         private int x, y;
-        private final int width = 10;
-        private final int height = 10;
-        private final int speed = 10;
-        private int dx, dy; // Direction of the projectile
+        private int dx, dy;
+        private int width, height;
 
-        public Projectile(int startX, int startY, int dx, int dy) {
-            this.x = startX - width / 2;
-            this.y = startY - height / 2;
-            this.dx = dx * speed;
-            this.dy = dy * speed;
+        public Projectile(int x, int y, int dx, int dy, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.dx = dx;
+            this.dy = dy;
+            this.width = width;
+            this.height = height;
         }
 
-        public void move() {
+        public void update() {
             x += dx;
             y += dy;
+        }
+
+        public boolean isOutOfBounds(int panelWidth, int panelHeight) {
+            return x < 0 || x > panelWidth || y < 0 || y > panelHeight;
+        }
+
+        public boolean collidesWith(Enemy enemy) {
+            return x < enemy.getX() + enemy.getImage().getWidth(null) &&
+                    x + width > enemy.getX() &&
+                    y < enemy.getY() + enemy.getImage().getHeight(null) &&
+                    y + height > enemy.getY();
+        }
+
+        public boolean collidesWith(int targetX, int targetY, int targetWidth, int targetHeight) {
+            return x < targetX + targetWidth &&
+                    x + width > targetX &&
+                    y < targetY + targetHeight &&
+                    y + height > targetY;
         }
 
         public int getX() {
@@ -297,27 +370,15 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         public int getHeight() {
             return height;
         }
-
-        public boolean isVisible() {
-            // Check if projectile is still within bounds
-            return x >= 0 && x <= WarAreaPanel.this.getWidth() && y >= 0 && y <= WarAreaPanel.this.getHeight();
-        }
-
-        public boolean collidesWith(Enemy enemy) {
-            Rectangle projectileRect = new Rectangle(x, y, width, height);
-            Rectangle enemyRect = new Rectangle(enemy.getX(), enemy.getY(), enemy.getImage().getWidth(null), enemy.getImage().getHeight(null));
-            return projectileRect.intersects(enemyRect);
-        }
     }
 
     private class Enemy {
         private int x, y;
-        private final int speed = 2;
         private Image image;
 
-        public Enemy(int startX, int startY, Image image) {
-            this.x = startX;
-            this.y = startY;
+        public Enemy(int x, int y, Image image) {
+            this.x = x;
+            this.y = y;
             this.image = image;
         }
 
@@ -325,10 +386,12 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             int dx = targetX - x;
             int dy = targetY - y;
             double distance = Math.sqrt(dx * dx + dy * dy);
-            if (distance > 0) {
-                x += (dx / distance) * speed;
-                y += (dy / distance) * speed;
-            }
+            x += (int) (dx / distance * 2); // Adjust speed
+            y += (int) (dy / distance * 2); // Adjust speed
+        }
+
+        public Image getImage() {
+            return image;
         }
 
         public int getX() {
@@ -337,10 +400,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
         public int getY() {
             return y;
-        }
-
-        public Image getImage() {
-            return image;
         }
     }
 }
