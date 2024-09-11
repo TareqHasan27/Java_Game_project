@@ -9,11 +9,12 @@ import java.util.Random;
 
 public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionListener, KeyListener {
 
-    private Image backgroundImage; // Image for the background
-    private Image characterImage; // Image for the character
-    private Image enemyImage; // Image for the enemies
-    private int characterX = 240; // Initial X position of the character
-    private int characterY = 450; // Initial Y position of the character
+    private Image backgroundImage;
+    private Image characterImage;
+    private Image enemyImage;
+    private Image newEnemyImage;
+    private int characterX = 240;
+    private int characterY = 450;
     private boolean mousePressed = false;
     private Timer timer;
     private ProjectileManager projectileManager;
@@ -22,6 +23,10 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     private Random random;
     private Timer enemyRespawnTimer;
     private boolean firingLeft, firingRight, firingUp, firingDown;
+    private int score = 0;
+    private NewEnemy newEnemy; // Replaces SpecialEnemy
+    private Timer newEnemyRespawnTimer;
+    private int lastNewEnemyScore = 0; // Track the last score when the new enemy appeared
 
     public WarAreaPanel() {
         setPreferredSize(new Dimension(800, 600));
@@ -35,7 +40,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         enemies = new ArrayList<>();
         random = new Random();
 
-        loadImages(); // Load the images
+        loadImages();
 
         timer = new Timer(16, new ActionListener() {
             @Override
@@ -52,59 +57,54 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         enemyRespawnTimer = new Timer(3000, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Ensure there are always 10 enemies
                 spawnEnemies(5);
             }
         });
         enemyRespawnTimer.start();
 
-        // Spawn enemies after the panel has been properly sized
         SwingUtilities.invokeLater(() -> spawnEnemies(5));
     }
 
     private void loadImages() {
-        // Load background image
-        ImageIcon backgroundIcon = new ImageIcon("D:/java_new_project/src/picture/background.png");
+        ImageIcon backgroundIcon = new ImageIcon("background.png");
         backgroundImage = backgroundIcon.getImage();
 
-        // Load character image
-        ImageIcon characterIcon = new ImageIcon("D:/java_new_project/src/picture/Player.png");
+        ImageIcon characterIcon = new ImageIcon("Player.png");
         characterImage = characterIcon.getImage();
 
-        // Load enemy image
-        ImageIcon enemyIcon = new ImageIcon("D:/java_new_project/src/picture/Enemy.png");
+        ImageIcon enemyIcon = new ImageIcon("Enemy.png");
         enemyImage = enemyIcon.getImage();
+
+        ImageIcon newEnemyIcon = new ImageIcon("NewEnemy.png");
+        newEnemyImage = newEnemyIcon.getImage();
     }
 
     private void spawnEnemies(int maxCount) {
         int currentEnemyCount = enemies.size();
-
-        // Ensure we don't spawn more than the max count (e.g., 10 enemies)
         int enemiesToSpawn = maxCount - currentEnemyCount;
 
         if (enemiesToSpawn > 0) {
             int panelWidth = getWidth();
             int panelHeight = getHeight();
 
-            // Ensure that the panel has been properly sized before spawning enemies
             if (panelWidth > 0 && panelHeight > 0) {
                 for (int i = 0; i < enemiesToSpawn; i++) {
                     int startX = 0, startY = 0;
                     int side = random.nextInt(4);
                     switch (side) {
-                        case 0: // Left
+                        case 0:
                             startX = 0;
                             startY = random.nextInt(panelHeight);
                             break;
-                        case 1: // Right
+                        case 1:
                             startX = panelWidth - enemyImage.getWidth(null);
                             startY = random.nextInt(panelHeight);
                             break;
-                        case 2: // Top
+                        case 2:
                             startX = random.nextInt(panelWidth);
                             startY = 0;
                             break;
-                        case 3: // Bottom
+                        case 3:
                             startX = random.nextInt(panelWidth);
                             startY = panelHeight - enemyImage.getHeight(null);
                             break;
@@ -112,7 +112,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
                     Enemy enemy = new Enemy(startX, startY, enemyImage);
                     enemies.add(enemy);
 
-                    // Schedule enemy projectile firing
                     new Timer(random.nextInt(3000) + 2000, new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
@@ -131,6 +130,30 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         for (Enemy enemy : enemies) {
             enemy.moveTowards(characterX, characterY);
         }
+
+        // Check if a new enemy needs to be spawned
+        if (score >= lastNewEnemyScore + 100 && (newEnemy == null || newEnemy.isDestroyed())) {
+            lastNewEnemyScore = score;
+            newEnemy = new NewEnemy(getWidth() / 2, getHeight() / 2, newEnemyImage);
+
+            // Set up respawn timer if the new enemy was destroyed
+            if (newEnemyRespawnTimer != null) {
+                newEnemyRespawnTimer.stop();
+            }
+            newEnemyRespawnTimer = new Timer(10000, new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    newEnemy = new NewEnemy(getWidth() / 2, getHeight() / 2, newEnemyImage);
+                }
+            });
+            newEnemyRespawnTimer.setRepeats(false);
+            newEnemyRespawnTimer.start();
+        }
+
+        if (newEnemy != null) {
+            newEnemy.moveTowards(characterX, characterY);
+            newEnemy.updateProjectiles();
+        }
     }
 
     private void checkCollisions() {
@@ -142,19 +165,44 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
                 if (projectile.collidesWith(enemy)) {
                     projectiles.remove(i);
                     enemies.remove(j);
+                    score += 10;
                     break;
                 }
             }
         }
 
-        // Check for collisions between enemy projectiles and the character
         List<Projectile> enemyProjectiles = enemyProjectileManager.getProjectiles();
         for (int i = enemyProjectiles.size() - 1; i >= 0; i--) {
             Projectile projectile = enemyProjectiles.get(i);
             if (projectile.collidesWith(characterX, characterY, characterImage.getWidth(null), characterImage.getHeight(null))) {
                 enemyProjectiles.remove(i);
-                // Handle character being hit (e.g., reduce health, end game, etc.)
                 System.out.println("Character hit!");
+            }
+        }
+
+        if (newEnemy != null) {
+            List<Projectile> newEnemyProjectiles = newEnemy.getProjectiles();
+            for (int i = newEnemyProjectiles.size() - 1; i >= 0; i--) {
+                Projectile projectile = newEnemyProjectiles.get(i);
+                if (projectile.collidesWith(characterX, characterY, characterImage.getWidth(null), characterImage.getHeight(null))) {
+                    newEnemy.getProjectiles().remove(i);
+                    System.out.println("Character hit by new enemy projectile!");
+                }
+            }
+
+            // Check for collisions between player projectiles and new enemy
+            for (int i = projectiles.size() - 1; i >= 0; i--) {
+                Projectile projectile = projectiles.get(i);
+                if (projectile.collidesWith(newEnemy.getX(), newEnemy.getY(),
+                        newEnemy.getImage().getWidth(null), newEnemy.getImage().getHeight(null))) {
+                    projectiles.remove(i);
+                    newEnemy.hit();
+                    if (newEnemy.isDestroyed()) {
+                        newEnemy = null; // Remove the new enemy
+                        score += 30; // Add bonus points for destroying the new enemy
+                    }
+                    break;
+                }
             }
         }
     }
@@ -164,32 +212,42 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g;
 
-        // Draw background
         if (backgroundImage != null) {
             g2d.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
         }
 
-        // Draw character
         if (characterImage != null) {
             g2d.drawImage(characterImage, characterX, characterY, this);
         }
 
-        // Draw enemies
         for (Enemy enemy : enemies) {
             g2d.drawImage(enemy.getImage(), enemy.getX(), enemy.getY(), this);
         }
 
-        // Draw projectiles
+        if (newEnemy != null) {
+            g2d.drawImage(newEnemy.getImage(), newEnemy.getX(), newEnemy.getY(), this);
+        }
+
         g2d.setColor(Color.YELLOW);
         for (Projectile projectile : projectileManager.getProjectiles()) {
             g2d.fillOval(projectile.getX(), projectile.getY(), projectile.getWidth(), projectile.getHeight());
         }
 
-        // Draw enemy projectiles
         g2d.setColor(Color.RED);
         for (Projectile projectile : enemyProjectileManager.getProjectiles()) {
             g2d.fillOval(projectile.getX(), projectile.getY(), projectile.getWidth(), projectile.getHeight());
         }
+
+        if (newEnemy != null) {
+            for (Projectile projectile : newEnemy.getProjectiles()) {
+                g2d.setColor(projectile.getColor());
+                g2d.fillOval(projectile.getX(), projectile.getY(), projectile.getWidth(), projectile.getHeight());
+            }
+        }
+
+        g2d.setColor(Color.WHITE);
+        g2d.setFont(new Font("Arial", Font.BOLD, 20));
+        g2d.drawString("Score: " + score, 10, 20);
     }
 
     @Override
@@ -213,10 +271,8 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        // Update character position based on mouse drag
         characterX = e.getX() - characterImage.getWidth(null) / 2;
         characterY = e.getY() - characterImage.getHeight(null) / 2;
-        // Ensure character stays within panel boundaries
         if (characterX < 0) characterX = 0;
         if (characterY < 0) characterY = 0;
         if (characterX > getWidth() - characterImage.getWidth(null))
@@ -235,7 +291,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     public void keyPressed(KeyEvent e) {
         int key = e.getKeyCode();
 
-        // Determine direction based on key pressed
         if (key == KeyEvent.VK_LEFT) {
             firingLeft = true;
         } else if (key == KeyEvent.VK_RIGHT) {
@@ -246,7 +301,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             firingDown = true;
         }
 
-        // Fire projectile based on direction
         if (firingLeft || firingRight || firingUp || firingDown) {
             int startX = characterX + characterImage.getWidth(null) / 2;
             int startY = characterY + characterImage.getHeight(null) / 2;
@@ -273,7 +327,6 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
     public void keyReleased(KeyEvent e) {
         int key = e.getKeyCode();
 
-        // Stop firing in a direction when the key is released
         if (key == KeyEvent.VK_LEFT) {
             firingLeft = false;
         } else if (key == KeyEvent.VK_RIGHT) {
@@ -322,6 +375,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         private int x, y;
         private int dx, dy;
         private int width, height;
+        private Color color;
 
         public Projectile(int x, int y, int dx, int dy, int width, int height) {
             this.x = x;
@@ -330,6 +384,7 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             this.dy = dy;
             this.width = width;
             this.height = height;
+            this.color = Color.YELLOW;
         }
 
         public void update() {
@@ -370,6 +425,14 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         public int getHeight() {
             return height;
         }
+
+        public Color getColor() {
+            return color;
+        }
+
+        public void setColor(Color color) {
+            this.color = color;
+        }
     }
 
     private class Enemy {
@@ -386,8 +449,87 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             int dx = targetX - x;
             int dy = targetY - y;
             double distance = Math.sqrt(dx * dx + dy * dy);
-            x += (int) (dx / distance * 2); // Adjust speed
-            y += (int) (dy / distance * 2); // Adjust speed
+            x += (int) (dx / distance * 2);
+            y += (int) (dy / distance * 2);
+        }
+
+        public Image getImage() {
+            return image;
+        }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+    }
+
+    private class NewEnemy {
+        private int x, y;
+        private Image image;
+        private List<Projectile> projectiles;
+        private Random random;
+        private int hitPoints = 10; // Number of hits to destroy the NewEnemy
+
+        public NewEnemy(int x, int y, Image image) {
+            this.x = x;
+            this.y = y;
+            this.image = image;
+            this.projectiles = new ArrayList<>();
+            this.random = new Random();
+            fireNewEnemyProjectiles();
+        }
+
+        private void fireNewEnemyProjectiles() {
+            Timer timer = new Timer(1000, new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    int startX = x + image.getWidth(null) / 2;
+                    int startY = y + image.getHeight(null) / 2;
+                    int dx = characterX - startX;
+                    int dy = characterY - startY;
+                    double distance = Math.sqrt(dx * dx + dy * dy);
+                    dx = (int) (dx / distance * 5);
+                    dy = (int) (dy / distance * 5);
+
+                    Projectile projectile = new Projectile(startX, startY, dx, dy, 15, 15);
+                    projectile.setColor(new Color(random.nextInt(256), random.nextInt(256), random.nextInt(256)));
+                    projectiles.add(projectile);
+                }
+            });
+            timer.start();
+        }
+
+        public void moveTowards(int targetX, int targetY) {
+            int dx = targetX - x;
+            int dy = targetY - y;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+            x += (int) (dx / distance * 2);
+            y += (int) (dy / distance * 2);
+        }
+
+        public void updateProjectiles() {
+            for (int i = projectiles.size() - 1; i >= 0; i--) {
+                Projectile projectile = projectiles.get(i);
+                projectile.update();
+                if (projectile.isOutOfBounds(getWidth(), getHeight())) {
+                    projectiles.remove(i);
+                }
+            }
+        }
+
+        public void hit() {
+            hitPoints--;
+        }
+
+        public boolean isDestroyed() {
+            return hitPoints <= 0;
+        }
+
+        public List<Projectile> getProjectiles() {
+            return projectiles;
         }
 
         public Image getImage() {
