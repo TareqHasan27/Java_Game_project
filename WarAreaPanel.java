@@ -311,15 +311,15 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
         }
 
         g2d.setFont(new Font("Verdana", Font.BOLD | Font.ITALIC, 18));
-        g2d.setColor(Color.BLACK); // Shadow color
+        g2d.setColor(Color.BLACK);
         g2d.drawString("Score: " + score, 12, 22);
         g2d.setColor(Color.WHITE);
         g2d.drawString("Score: " + score, 10, 20);
 
         // Draw LifeBar
         g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Courier New", Font.BOLD | Font.ITALIC, 14));
-        g2d.drawString("LifeBar", getWidth() - 100, 40);
+        g2d.setFont(new Font("Arial", Font.BOLD  , 13));
+        g2d.drawString("LifeBar", getWidth() - 90, 43);
 
         // Draw background of LifeBar
         g2d.setColor(Color.GRAY);
@@ -357,12 +357,20 @@ public class WarAreaPanel extends JPanel implements MouseListener, MouseMotionLi
             g2d.drawString("GAME OVER!", getWidth() / 2 - 150, getHeight() / 2 - 20);
 
             // Draw Survival Time
-            g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 20));
-            g2d.setColor(Color.WHITE); // Shadow color
-            g2d.drawString("Survival Time: " + survivalTime + " seconds", getWidth() / 2 - 128, getHeight() / 2 + 25);
-            g2d.setColor(Color.BLACK); // Text color
-            g2d.drawString("Survival Time: " + survivalTime + " seconds", getWidth() / 2 - 130, getHeight() / 2 + 27);
+            g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 18));
+            g2d.setColor(Color.BLACK); // Shadow color
+            g2d.drawString("Survival Time: " + survivalTime + " seconds", getWidth() / 2 - 112, getHeight() / 2 + 18);
+            g2d.setColor(Color.WHITE); // Text color
+            g2d.drawString("Survival Time: " + survivalTime + " seconds", getWidth() / 2 - 114, getHeight() / 2 + 20);
+
+            // Draw Final Score
+            g2d.setFont(new Font("Comic Sans MS", Font.BOLD, 14));
+            g2d.setColor(Color.BLACK);
+            g2d.drawString("Final Score: " + score, getWidth() / 2 - 60, getHeight() / 2 + 48);
+            g2d.setColor(Color.WHITE);
+            g2d.drawString("Final Score: " + score, getWidth() / 2 - 62, getHeight() / 2 + 50);
         }
+
 
 
     }
