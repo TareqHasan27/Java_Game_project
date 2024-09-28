@@ -1,0 +1,52 @@
+package game;
+
+import java.awt.Graphics;
+import java.awt.Image;
+import javax.swing.ImageIcon;
+
+public class Player {
+    private int x, y;
+    private Image image;
+
+    public Player(int x, int y, String imagePath) {
+        this.x = x;
+        this.y = y;
+        this.image = new ImageIcon(imagePath).getImage();
+    }
+
+    public void draw(Graphics g) {
+        g.drawImage(image, x, y, null);
+    }
+
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
+
+    public void setPosition(int x, int y, int screenWidth, int screenHeight) {
+        // Ensure the player doesn't move outside the screen
+        int width = getWidth();
+        int height = getHeight();
+
+        if (x < 0) x = 0;
+        if (y < 0) y = 0;
+        if (x + width > screenWidth) x = screenWidth - width;
+        if (y + height > screenHeight) y = screenHeight - height;
+
+        this.x = x;
+        this.y = y;
+    }
+
+
+
+    public int getWidth() {
+        return image.getWidth(null);
+    }
+
+    public int getHeight() {
+        return image.getHeight(null);
+    }
+}
