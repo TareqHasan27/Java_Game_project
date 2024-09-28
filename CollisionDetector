@@ -1,0 +1,29 @@
+package game;
+
+import java.awt.*;
+import java.util.List;
+import java.util.Iterator;
+
+public class CollisionDetector {
+    public static void checkCollisions(List<Projectile> projectiles, List<Enemy> enemies, Score score, EnemyManager enemyManager, int screenWidth, int screenHeight) {
+        Iterator<Projectile> projectileIterator = projectiles.iterator();
+
+        while (projectileIterator.hasNext()) {
+            Projectile projectile = projectileIterator.next();
+
+            Iterator<Enemy> enemyIterator = enemies.iterator();
+            while (enemyIterator.hasNext()) {
+                Enemy enemy = enemyIterator.next();
+
+                if (projectile.getBounds().intersects(enemy.getBounds())) {
+                    // Collision detected
+                    score.increase(10);
+                    projectileIterator.remove();
+                    enemyManager.removeEnemy(enemy, screenWidth, screenHeight); // Pass the additional parameters
+                    break;
+                }
+            }
+        }
+    }
+
+}
