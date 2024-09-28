@@ -1,0 +1,51 @@
+package game;
+
+import java.awt.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+public class EnemyManager {
+    public static final int MAX_ENEMIES = 5;
+    private List<Enemy> enemies = new ArrayList<>();
+
+
+    public EnemyManager(int screenWidth, int screenHeight) {
+        // Create initial enemies
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            spawnEnemy(screenWidth, screenHeight);
+        }
+    }
+
+    public List<Enemy> getEnemies() {
+        return enemies;
+    }
+
+    public void updateEnemies(int playerX, int playerY) {
+        // Move each enemy towards the player
+        for (Enemy enemy : enemies) {
+            enemy.moveTowards(playerX, playerY);
+        }
+    }
+
+    public void removeEnemy(Enemy enemy, int screenWidth, int screenHeight) {
+        enemies.remove(enemy);
+        spawnEnemy(screenWidth, screenHeight); // Spawn a new enemy to keep the count at 5
+    }
+
+    public void spawnEnemy(int screenWidth, int screenHeight) {
+        if (screenWidth > 0 && screenHeight > 0 && enemies.size() < MAX_ENEMIES) {
+            Random rand = new Random();
+            int x = rand.nextInt(screenWidth);
+            int y = rand.nextInt(screenHeight);
+            enemies.add(new Enemy("src/game/picture/Enemywar.png", x, y));
+        }
+    }
+
+
+    public void draw(Graphics g) {
+        for (Enemy enemy : enemies) {
+            enemy.draw(g);
+        }
+    }
+}
