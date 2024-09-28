@@ -1,0 +1,21 @@
+package game;
+
+public class Score {
+    private int value;
+
+    public Score() {
+        this.value = 0;
+    }
+
+    public int getValue() {
+        return value;
+    }
+
+    public void increase(int amount) {
+        value += amount;
+    }
+
+    public void reset() {
+        value = 0;
+    }
+}
