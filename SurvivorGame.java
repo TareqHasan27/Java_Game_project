@@ -21,7 +21,7 @@ public class SurvivorGame extends JFrame {
     // Method to switch to the game panel
     public void startGame() {
         remove(getContentPane().getComponent(0)); // Remove the start screen
-        WarAreaPanel gamePanel = new WarAreaPanel();
+        game.WarAreaPanel gamePanel = new game.WarAreaPanel();
         add(gamePanel);  // Add the game panel
         revalidate();  // Refresh the frame
         repaint();
